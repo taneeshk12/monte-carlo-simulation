@@ -1,22 +1,8 @@
-# Monte Carlo Simulation for Quantitative Finance
+# Quant Projects
 
-| Module | Contents |
+| Project | What it does |
 |---|---|
-| `mc/paths.py` | Geometric Brownian Motion paths, correlated assets (Cholesky) |
-| `mc/pricing.py` | European (checked against Black-Scholes), Asian, up-and-out barrier options |
-| `mc/risk.py` | Portfolio Value-at-Risk and Expected Shortfall |
+| [monte_carlo](monte_carlo/) | Monte Carlo engine: option pricing (checked against Black-Scholes), Asian and barrier options, variance reduction, portfolio VaR/ES |
+| [deep_hedging](deep_hedging/) | A neural network that learns to hedge options under transaction costs. Trained on a Heston model calibrated to SPY/VIX, then backtested on real SPY history |
 
-Variance reduction: antithetic variates, and a geometric-Asian control variate.
-
-## Run
-```bash
-pip install numpy scipy matplotlib
-python main.py
-```
-Plots are saved to `outputs/`.
-
-## Ideas to extend
-- Heston stochastic volatility / jump diffusion (Merton)
-- American options via Longstaff–Schwartz regression
-- Greeks via pathwise or likelihood-ratio estimators
-- Quasi-Monte Carlo (Sobol sequences)
+Each folder has its own README with results. Run either with `python main.py` from inside the folder.
