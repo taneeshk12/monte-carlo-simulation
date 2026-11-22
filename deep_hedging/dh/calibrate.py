@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .sim import HestonParams
+from .sim import HestonParams, JumpParams
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 
@@ -44,3 +44,13 @@ def fit_heston(df, dt=1 / 252) -> HestonParams:
     rho = np.corrcoef(ret, np.diff(v))[0, 1]
     return HestonParams(v0=float(v[-1]), kappa=float(kappa), theta=float(theta),
                         xi=float(xi), rho=float(rho))
+
+
+def fit_jumps(df, threshold=3.0) -> JumpParams:
+    """A day is a 'jump' when the SPY return is bigger than `threshold` times
+    the daily move the VIX predicted the day before."""
+    ret = np.diff(np.log(df["spy"].values))
+    expected = df["vix"].values[:-1] / 100 / np.sqrt(252)
+    j = ret[np.abs(ret / expected) > threshold]
+    years = len(ret) / 252
+    return JumpParams(lam=len(j) / years, mu_j=float(j.mean()), sig_j=float(j.std()))

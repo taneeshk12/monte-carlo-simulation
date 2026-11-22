@@ -10,8 +10,8 @@ Based on Buehler, Gonon, Teichmann & Wood, *Deep Hedging* (Quantitative Finance,
 ## Pipeline
 1. **Data:** daily SPY and VIX since 2005 (yfinance, cached to `data/`).
 2. **Calibration:** Heston stochastic volatility model, fitted to the VIX time series
-   (κ = 9.8, long-run vol 21%, vol-of-vol 0.65, ρ = −0.75).
-3. **Simulation:** 200k Heston paths, 30 daily hedging dates.
+   (κ = 9.8, long-run vol 21%, vol-of-vol 0.65, ρ = −0.75), plus jumps for the Bates model.
+3. **Simulation:** 200k paths per world (Heston, and Bates with jumps), 30 daily hedging dates.
 4. **Training:** a feed-forward network maps (time left, log-moneyness, current vol, current
    position) to the number of shares held. The loss is CVaR of the hedging loss, via the
    Rockafellar–Uryasev formulation. The learned threshold is the seller's indifference price.
@@ -20,39 +20,49 @@ Based on Buehler, Gonon, Teichmann & Wood, *Deep Hedging* (Quantitative Finance,
 
 ## Results (P&L per option sold, S0 = 100, premium excluded)
 
-**Simulated Heston test set (50k paths)**
+Two hedgers are trained: one in a Heston world (smooth moves only) and one in a **Bates**
+world (Heston plus sudden jumps). Jumps are calibrated from SPY: about 1 per year, mean −3.0%,
+std 5.6%. A "jump" is a day whose move is more than 3× what the VIX predicted.
+
+**Simulated test set with jumps (50k Bates paths)**
 | Strategy | Mean | Std | VaR 95 | CVaR 95 |
 |---|---|---|---|---|
-| No hedge | −2.84 | 3.69 | 10.39 | 12.46 |
-| Black-Scholes delta | −3.37 | 0.69 | 4.60 | 5.01 |
-| **Deep hedger** | **−3.24** | 0.79 | **4.40** | **4.74** |
+| No hedge | −2.96 | 3.87 | 10.82 | 13.18 |
+| Black-Scholes delta | −3.49 | 0.90 | 4.91 | 6.02 |
+| Deep hedger (Heston) | −3.36 | 0.91 | **4.65** | 5.52 |
+| **Deep hedger (Bates)** | **−3.32** | 1.01 | 4.72 | **5.45** |
 
 **Real SPY, 2005–2026 (1,096 windows)**
 | Strategy | Mean | Std | VaR 95 | CVaR 95 |
 |---|---|---|---|---|
 | No hedge | −2.76 | 3.19 | 8.57 | 11.71 |
 | Black-Scholes delta | −2.66 | 1.19 | 4.62 | 6.45 |
-| **Deep hedger** | **−2.57** | 1.36 | 4.61 | 6.46 |
+| Deep hedger (Heston) | −2.57 | 1.36 | 4.61 | 6.46 |
+| **Deep hedger (Bates)** | **−2.55** | 1.40 | **4.27** | **6.42** |
 
 ### Interpretation
-- In the simulated world it was trained for, the agent cuts tail risk (CVaR) by about 5% and
-  trading costs by about 4% compared with Black-Scholes. It does this by **trading less**:
-  its hedge curve is flatter, and it depends on the current position, a soft "no-trade band".
-- On real data, it keeps its cost advantage (the best mean P&L) but its tail risk only
-  **ties** Black-Scholes. This is the simulation-to-reality gap: real SPY has jumps and
-  crashes that the Heston model underestimates.
-- Its standard deviation is slightly higher on purpose: it minimises CVaR, not variance.
+- Both hedgers save money by **trading less** than Black-Scholes. Their hedge is flatter
+  (see `learned_delta.png`), which cuts transaction costs.
+- On simulated jump paths, both beat Black-Scholes on tail risk (CVaR −9% to −10%).
+- On real SPY, adding jumps to training gives the **best result on every measure except
+  std**: VaR improves by 8% over Black-Scholes. CVaR improves only slightly; the
+  Heston-trained hedger just ties Black-Scholes there.
+- **Caveat:** the real test has about 55 tail windows, and the windows overlap, so small
+  CVaR differences are within noise. The gap left on real data suggests jumps alone
+  don't explain real crashes: volatility clustering and regime changes matter too.
+- Std is slightly higher on purpose: the agent minimises CVaR, not variance.
 
 ## Run
 ```bash
 pip install numpy scipy pandas matplotlib torch "yfinance>=0.2.50"
-python main.py      # about 3 min on a laptop CPU
+python main.py      # about 6 min on a laptop CPU
 ```
 Outputs: `outputs/pnl_simulated.png`, `pnl_real_spy.png`, `learned_delta.png`,
-`training_loss.png`, `deep_hedger.pt`.
+`training_loss.png`, `deep_hedger_heston.pt`, `deep_hedger_bates.pt`.
 
 ## Next steps
-- Add jumps (Bates model) to close the gap on real data
+- Test on real traded options (Deribit BTC options)
+- Generative model (GAN or diffusion) trained on real paths as the simulator
 - Recurrent network (LSTM) policy, with the VIX term structure as an extra input
 - Hedge with options as well as stock (vega hedging)
 - Compare different risk preferences: entropic risk vs CVaR vs variance

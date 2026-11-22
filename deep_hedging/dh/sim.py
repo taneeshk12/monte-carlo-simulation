@@ -18,6 +18,13 @@ class HestonParams:
     mu: float = 0.0       # drift of the stock
 
 
+@dataclass
+class JumpParams:
+    lam: float = 1.0      # expected jumps per year
+    mu_j: float = -0.03   # mean log jump size
+    sig_j: float = 0.05   # std of log jump size
+
+
 def gbm(S0, sigma, T, n_steps, n_paths, mu=0.0, seed=None):
     rng = np.random.default_rng(seed)
     dt = T / n_steps
@@ -28,20 +35,29 @@ def gbm(S0, sigma, T, n_steps, n_paths, mu=0.0, seed=None):
     return S, v
 
 
-def heston(S0, p: HestonParams, T, n_steps, n_paths, substeps=10, seed=None):
+def heston(S0, p: HestonParams, T, n_steps, n_paths, substeps=10, seed=None,
+           jumps: "JumpParams | None" = None):
     """Heston model, Euler scheme with full truncation. Simulated on a finer grid
-    (substeps per hedging date) for accuracy, then sampled at hedging dates."""
+    (substeps per hedging date) for accuracy, then sampled at hedging dates.
+
+    With `jumps` this becomes the Bates model: Heston plus Merton-style jumps,
+    sudden moves that arrive at random (Poisson) with normally distributed
+    log size. The drift is compensated so jumps don't change the expected return."""
     rng = np.random.default_rng(seed)
     dt = T / (n_steps * substeps)
     S = np.empty((n_paths, n_steps + 1)); v = np.empty_like(S)
     s = np.full(n_paths, float(S0)); var = np.full(n_paths, p.v0)
     S[:, 0], v[:, 0] = s, var
+    comp = jumps.lam * (np.exp(jumps.mu_j + 0.5 * jumps.sig_j**2) - 1) if jumps else 0.0
     for i in range(n_steps):
         for _ in range(substeps):
             z1 = rng.standard_normal(n_paths)
             z2 = p.rho * z1 + np.sqrt(1 - p.rho**2) * rng.standard_normal(n_paths)
             vp = np.maximum(var, 0.0)
-            s = s * np.exp((p.mu - 0.5 * vp) * dt + np.sqrt(vp * dt) * z1)
+            s = s * np.exp((p.mu - comp - 0.5 * vp) * dt + np.sqrt(vp * dt) * z1)
+            if jumps:
+                n = rng.poisson(jumps.lam * dt, n_paths)
+                s *= np.exp(n * jumps.mu_j + np.sqrt(n) * jumps.sig_j * rng.standard_normal(n_paths))
             var = var + p.kappa * (p.theta - vp) * dt + p.xi * np.sqrt(vp * dt) * z2
         S[:, i + 1], v[:, i + 1] = s, np.maximum(var, 0.0)
     return S, v
