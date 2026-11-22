@@ -43,7 +43,7 @@ res = {
     "bs": prem + hedge_pnl(S, bs_delta(S, V, T, K, N), K, COST),
     "ai": prem + hedge_pnl(S, agent_deltas(btc_model, S, V, T, K), K, COST),
 }
-btc = [{"d": opts.expiry[i].strftime("%Y-%m"), "k": opts.instrument[i], "p": round(prem[i], 2),
+btc = [{"d": opts.expiry[i].strftime("%Y-%m"), "st": opts.start[i].strftime("%Y-%m-%d"), "k": opts.instrument[i], "p": round(prem[i], 2),
         "iv": opts.iv[i], **{k: round(float(v[i]), 2) for k, v in res.items()}} for i in range(len(opts))]
 
 data = {

@@ -7,9 +7,13 @@ minimises tail risk (CVaR 95%) and is evaluated on both simulated and **real** S
 
 Based on Buehler, Gonon, Teichmann & Wood, *Deep Hedging* (Quantitative Finance, 2019).
 
-**Interactive demo:** open `demo/index.html` in a browser. The trained network runs in the
-page: move the dials (volatility, crashes, trading cost, strike) to watch the AI and
-Black-Scholes hedge live, plus the real-BTC results. Rebuild it with `python export_demo.py`.
+![Deep Hedging Lab demo](../docs/demo.png)
+
+**Interactive demo:** open [`demo/index.html`](demo/index.html) in a browser. The trained
+network runs in the page: move the dials (volatility, crashes, trading cost, strike) to
+watch the AI and Black-Scholes hedge live, plus the real-BTC results. Rebuild it with
+`python export_demo.py`.
+
 
 ## Pipeline
 1. **Data:** daily SPY and VIX since 2005 (yfinance, cached to `data/`).
@@ -56,6 +60,12 @@ std 5.6%. A "jump" is a day whose move is more than 3× what the VIX predicted.
   don't explain real crashes: volatility clustering and regime changes matter too.
 - Std is slightly higher on purpose: the agent minimises CVaR, not variance.
 
+<p>
+<img src="outputs/learned_delta.png" width="49%" alt="Learned hedge vs Black-Scholes delta">
+<img src="outputs/pnl_real_spy.png" width="49%" alt="Hedging P&L on real SPY windows">
+</p>
+<sub>Left: halfway to expiry, both networks hold a flatter hedge than Black-Scholes, so they trade less. Right: P&L on real SPY windows (log scale); the AI's left tail is slightly shorter.</sub>
+
 ## Part 2: Real Bitcoin options (Deribit) — `python btc_main.py`
 
 The SPY test hedges a *hypothetical* option. Here we hedge **67 real, traded monthly BTC call
@@ -76,7 +86,11 @@ before expiry, hedged daily with BTC, and settled at Deribit's real settlement p
 | Black-Scholes delta | +0.53 | **+0.42** | **−2.27** | **1.83** |
 | Deep hedger | **+0.59** | +0.20 | −6.84 | 2.35 |
 
-![cumulative](outputs/btc/real_options_cumulative.png)
+![Cumulative profit from selling and hedging a real BTC option each month](outputs/btc/real_options_cumulative.png)
+
+<img src="outputs/btc/real_options_scatter.png" width="60%" alt="Per-option profit: deep hedger vs Black-Scholes">
+
+<sub>Each dot is one real option. Dots above the line are months where the AI did better than Black-Scholes; red marks the unseen 2024–26 period.</sub>
 
 ### What we learned (honestly)
 1. **The deep hedger did not beat Black-Scholes on unseen real options.** The two track each
@@ -103,12 +117,21 @@ python main.py      # SPY experiment, about 6 min on a laptop CPU
 python btc_main.py  # real BTC options experiment, about 3 min
 ```
 Outputs: `outputs/pnl_simulated.png`, `pnl_real_spy.png`, `learned_delta.png`,
-`training_loss.png`, `deep_hedger_heston.pt`, `deep_hedger_bates.pt`.
+`training_loss.png`, `deep_hedger_heston.pt`, `deep_hedger_bates.pt`, and `outputs/btc/`
+for the Bitcoin experiment. Market data is cached in `data/` (not committed).
+
+## Code map
+| File | What it does |
+|---|---|
+| [`dh/sim.py`](dh/sim.py) | Heston and Bates simulators (vectorised Euler scheme with full truncation) |
+| [`dh/calibrate.py`](dh/calibrate.py) | SPY and VIX download; Heston and jump calibration from price and vol-index history |
+| [`dh/deribit.py`](dh/deribit.py) | Deribit public API: BTC settlement prices, DVOL, expired option prices |
+| [`dh/hedging.py`](dh/hedging.py) | Network, P&L with transaction costs, CVaR loss, training, Black-Scholes baseline |
+| [`export_demo.py`](export_demo.py) | Inlines the trained weights and BTC results into the browser demo |
 
 ## Next steps
 - Residual policy: learn a correction on top of Black-Scholes delta rather than a hedge from scratch
-- Hedge with real market option prices (vega hedging using the Deribit option chain)
 - Generative model (GAN or diffusion) trained on real paths as the simulator
 - Recurrent network (LSTM) policy, with the VIX term structure as an extra input
-- Hedge with options as well as stock (vega hedging)
+- Hedge with options as well as stock (vega hedging, using the Deribit option chain)
 - Compare different risk preferences: entropic risk vs CVaR vs variance

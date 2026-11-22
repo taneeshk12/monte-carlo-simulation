@@ -223,11 +223,11 @@ function update() {
 const line = (pts, c, w, dash) => `<polyline fill="none" stroke="${c}" stroke-width="${w}" ${dash ? `stroke-dasharray="${dash}"` : ""} stroke-linejoin="round" points="${pts.map(p => p.map(v => v.toFixed(1)).join(",")).join(" ")}"/>`;
 function drawTrace() {
   const s = $("trace").firstElementChild, W = s.clientWidth, H = s.clientHeight; if (!out || !W) return;
-  const m = { l: 44, r: 16, t: 14, b: 26 }, gap = 34, h1_ = (H - m.t - m.b - gap) * .55, h2_ = H - m.t - m.b - gap - h1_;
+  const m = { l: 44, r: 40, t: 30, b: 26 }, gap = 34, h1_ = (H - m.t - m.b - gap) * .55, h2_ = H - m.t - m.b - gap - h1_;
   const S = market.S, o = out.o, ps = Array.from({ length: N + 1 }, (_, i) => S[o + i]);
   const lo = Math.min(...ps, out.K) - 1, hi = Math.max(...ps, out.K) + 1;
   const x = i => m.l + (W - m.l - m.r) * i / N, y1 = v => m.t + h1_ * (hi - v) / (hi - lo), y2t = m.t + h1_ + gap, y2 = v => y2t + h2_ * (1 - v);
-  let g = `<text x="${m.l}" y="${m.t + 10}">Stock price</text>`;
+  let g = `<text x="${m.l}" y="14">Stock price</text>`;
   g += `<line x1="${m.l}" x2="${W - m.r}" y1="${y1(out.K)}" y2="${y1(out.K)}" stroke="${css("--none")}" stroke-dasharray="4 4"/><text x="${W - m.r}" y="${y1(out.K) - 6}" text-anchor="end">strike ${out.K}</text>`;
   g += line(ps.map((v, i) => [x(i), y1(v)]), css("--none"), 2);
   g += `<text x="${m.l - 6}" y="${y1(hi - 1) + 4}" text-anchor="end">${Math.round(hi - 1)}</text><text x="${m.l - 6}" y="${y1(lo + 1) + 4}" text-anchor="end">${Math.round(lo + 1)}</text>`;
@@ -264,7 +264,7 @@ function drawCum() {
   const x = i => m.l + (W - m.l - m.r) * i / (B.length - 1), y = v => m.t + (H - m.t - m.b) * (hi - v) / (hi - lo);
   let g = "";
   for (let v = Math.ceil(lo / 20) * 20; v <= hi; v += 20) g += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="${css("--rule")}"/><text x="${m.l - 6}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
-  const split = B.findIndex(r => r.d >= "2024-01");
+  const split = B.findIndex(r => r.st >= "2024-01-01");
   g += `<line x1="${x(split)}" x2="${x(split)}" y1="${m.t}" y2="${H - m.b}" stroke="${css("--ink")}" stroke-dasharray="3 4"/><text x="${x(split) + 6}" y="${m.t + 10}">unseen →</text>`;
   g += line(series.none.map((v, i) => [x(i), y(v)]), css("--none"), 1.4);
   g += line(series.bs.map((v, i) => [x(i), y(v)]), css("--bs"), 2);
@@ -273,7 +273,7 @@ function drawCum() {
   s.innerHTML = g;
 }
 function table() {
-  const B = D.btc, parts = [["2021–23", B.filter(r => r.d < "2024-01")], ["2024–26, unseen", B.filter(r => r.d >= "2024-01")]];
+  const B = D.btc, parts = [["2021–23", B.filter(r => r.st < "2024-01-01")], ["2024–26, unseen", B.filter(r => r.st >= "2024-01-01")]];
   const names = [["none", "No hedge"], ["bs", "Black-Scholes"], ["ai", "Deep hedger"]];
   let h = `<thead><tr><th>Strategy</th>${parts.map(p => `<th>Mean ${p[0]}</th>`).join("")}<th>Worst unseen</th></tr></thead><tbody>`;
   h += names.map(([k, n]) => `<tr><td${k === "ai" ? ' class="ai"' : ""}>${n}</td>${parts.map(p => `<td>${fmt(p[1].reduce((a, r) => a + r[k], 0) / p[1].length)}</td>`).join("")}<td>${fmt(Math.min(...parts[1][1].map(r => r[k])))}</td></tr>`).join("");
