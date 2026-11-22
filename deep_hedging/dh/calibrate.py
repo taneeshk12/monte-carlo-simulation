@@ -32,9 +32,11 @@ def load_market(start="2005-01-01", end=None, refresh=False):
     return df
 
 
-def fit_heston(df, dt=1 / 252) -> HestonParams:
-    v = (df["vix"].values / 100) ** 2
-    ret = np.diff(np.log(df["spy"].values))
+def fit_heston(df, price="spy", vol="vix", per_year=252) -> HestonParams:
+    """`vol` is an implied-vol index in % (VIX for SPY, DVOL for BTC)."""
+    dt = 1 / per_year
+    v = (df[vol].values / 100) ** 2
+    ret = np.diff(np.log(df[price].values))
     x, y = v[:-1], v[1:]
     b, a = np.polyfit(x, y, 1)
     kappa = (1 - b) / dt
@@ -46,11 +48,11 @@ def fit_heston(df, dt=1 / 252) -> HestonParams:
                         xi=float(xi), rho=float(rho))
 
 
-def fit_jumps(df, threshold=3.0) -> JumpParams:
-    """A day is a 'jump' when the SPY return is bigger than `threshold` times
-    the daily move the VIX predicted the day before."""
-    ret = np.diff(np.log(df["spy"].values))
-    expected = df["vix"].values[:-1] / 100 / np.sqrt(252)
+def fit_jumps(df, price="spy", vol="vix", per_year=252, threshold=3.0) -> JumpParams:
+    """A day is a 'jump' when the return is bigger than `threshold` times
+    the daily move the vol index predicted the day before."""
+    ret = np.diff(np.log(df[price].values))
+    expected = df[vol].values[:-1] / 100 / np.sqrt(per_year)
     j = ret[np.abs(ret / expected) > threshold]
-    years = len(ret) / 252
+    years = len(ret) / per_year
     return JumpParams(lam=len(j) / years, mu_j=float(j.mean()), sig_j=float(j.std()))

@@ -42,11 +42,15 @@ def heston(S0, p: HestonParams, T, n_steps, n_paths, substeps=10, seed=None,
 
     With `jumps` this becomes the Bates model: Heston plus Merton-style jumps,
     sudden moves that arrive at random (Poisson) with normally distributed
-    log size. The drift is compensated so jumps don't change the expected return."""
+    log size. The drift is compensated so jumps don't change the expected return.
+
+    p.v0 and p.theta may be arrays (one value per path) to train across many
+    volatility regimes ("domain randomization")."""
     rng = np.random.default_rng(seed)
     dt = T / (n_steps * substeps)
     S = np.empty((n_paths, n_steps + 1)); v = np.empty_like(S)
-    s = np.full(n_paths, float(S0)); var = np.full(n_paths, p.v0)
+    s = np.full(n_paths, float(S0))
+    var = np.broadcast_to(np.asarray(p.v0, dtype=float), (n_paths,)).copy()
     S[:, 0], v[:, 0] = s, var
     comp = jumps.lam * (np.exp(jumps.mu_j + 0.5 * jumps.sig_j**2) - 1) if jumps else 0.0
     for i in range(n_steps):

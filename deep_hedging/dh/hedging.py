@@ -76,12 +76,14 @@ def bs_price(S0, K, T, sigma):
 
 
 def train(model, S, v, T, K, cost, alpha=0.95, epochs=40, batch=4096, lr=1e-3, log=print):
+    """K may be a number or one strike per path."""
     S, v = torch.tensor(S, dtype=torch.float32), torch.tensor(v, dtype=torch.float32)
+    K = _strikes(K, S.shape[0])
     # w (CVaR threshold) is a price-sized number: start it at the loss quantile of
     # the untrained policy and give it a faster learning rate than the network.
     with torch.no_grad():
         idx = torch.randperm(S.shape[0])[:batch]
-        pnl0 = hedge_pnl(S[idx], model(S[idx], v[idx], T, K), K, cost)
+        pnl0 = hedge_pnl(S[idx], model(S[idx], v[idx], T, K[idx]), K[idx], cost)
         model.w.fill_(torch.quantile(-pnl0, alpha).item())
     opt = torch.optim.Adam([{"params": model.net.parameters(), "lr": lr},
                             {"params": [model.w], "lr": 0.05}])
@@ -93,7 +95,7 @@ def train(model, S, v, T, K, cost, alpha=0.95, epochs=40, batch=4096, lr=1e-3, l
         total = 0.0
         for j in range(0, n, batch):
             idx = perm[j:j + batch]
-            pnl = hedge_pnl(S[idx], model(S[idx], v[idx], T, K), K, cost)
+            pnl = hedge_pnl(S[idx], model(S[idx], v[idx], T, K[idx]), K[idx], cost)
             loss = cvar_loss(pnl, model.w, alpha)
             opt.zero_grad(); loss.backward(); opt.step()
             total += loss.item() * len(idx)
@@ -104,10 +106,14 @@ def train(model, S, v, T, K, cost, alpha=0.95, epochs=40, batch=4096, lr=1e-3, l
     return history
 
 
+def _strikes(K, n):
+    return torch.tensor(np.broadcast_to(np.asarray(K, dtype=np.float32), (n,)).copy())
+
+
 @torch.no_grad()
 def agent_deltas(model, S, v, T, K):
     S_t, v_t = torch.tensor(S, dtype=torch.float32), torch.tensor(v, dtype=torch.float32)
-    return model(S_t, v_t, T, K).numpy().astype(float)
+    return model(S_t, v_t, T, _strikes(K, len(S))).numpy().astype(float)
 
 
 def risk_stats(pnl, alpha=0.95):
