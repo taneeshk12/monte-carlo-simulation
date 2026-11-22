@@ -7,6 +7,10 @@ minimises tail risk (CVaR 95%) and is evaluated on both simulated and **real** S
 
 Based on Buehler, Gonon, Teichmann & Wood, *Deep Hedging* (Quantitative Finance, 2019).
 
+**Interactive demo:** open `demo/index.html` in a browser. The trained network runs in the
+page: move the dials (volatility, crashes, trading cost, strike) to watch the AI and
+Black-Scholes hedge live, plus the real-BTC results. Rebuild it with `python export_demo.py`.
+
 ## Pipeline
 1. **Data:** daily SPY and VIX since 2005 (yfinance, cached to `data/`).
 2. **Calibration:** Heston stochastic volatility model, fitted to the VIX time series
